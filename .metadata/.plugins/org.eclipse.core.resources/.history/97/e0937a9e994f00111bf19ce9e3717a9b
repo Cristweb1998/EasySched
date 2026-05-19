@@ -1,0 +1,62 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { UserService } from './services/user'; 
+
+@Component({
+  selector: 'app-root',
+  standalone: true, // Architettura moderna senza moduli pesanti
+  imports: [CommonModule], // Necessario per usare direttive come *ngFor
+  template: `
+    <div style="padding: 20px; font-family: sans-serif;">
+      <h1 style="color: #2c3e50;">EasySched - Dashboard Utenti</h1>
+      <p style="color: #7f8c8d;">Integrazione Full-Stack con Spring Boot</p>
+      <hr>
+
+      <!-- Visualizziamo la lista solo se ci sono utenti -->
+      <div *ngIf="utenti.length > 0; else noData">
+        <h3>Utenti recuperati dal database:</h3>
+        <ul>
+          <li *ngFor="let u of utenti" style="margin-bottom: 8px;">
+            <strong>{{ u.nome }}</strong> — <span style="color: #3498db;">{{ u.email }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Template mostrato in caso di lista vuota o errore -->
+      <ng-template #noData>
+        <div style="background: #fdf2e9; padding: 15px; border-left: 5px solid #e67e22;">
+          <p>Nessun dato ricevuto. Assicurati che:</p>
+          <ul>
+            <li>Il Backend Java sia avviato (porta 8080)</li>
+            <li>Ci siano record nella tabella 'users' del database</li>
+          </ul>
+        </div>
+      </ng-template>
+    </div>
+  `
+})
+export class App implements OnInit {
+  // Array che conterrà i dati provenienti da Java
+  utenti: any[] = [];
+
+  // Iniezione del servizio tramite Dependency Injection
+  constructor(private userService: UserService) {}
+
+  // Metodo del ciclo di vita eseguito all'avvio del componente
+  ngOnInit() {
+    this.caricaUtenti();
+  }
+
+  caricaUtenti() {
+    // Chiamata asincrona al servizio REST
+    this.userService.getUsers().subscribe({
+      next: (data) => {
+        this.utenti = data;
+        console.log('Successo: Dati ricevuti correttamente!', data);
+      },
+      error: (err) => {
+        console.error('Errore durante la chiamata al Backend:', err);
+      }
+    });
+  }
+}

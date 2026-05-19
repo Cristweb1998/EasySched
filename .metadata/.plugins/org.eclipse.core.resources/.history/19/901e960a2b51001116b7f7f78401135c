@@ -1,0 +1,63 @@
+import { Component, OnInit, signal } from '@angular/core'; // <-- Importato signal
+import { CommonModule } from '@angular/common';
+import { UserService } from './services/user'; 
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div style="padding: 20px; font-family: sans-serif;">
+      <h1>EasySched - Dashboard</h1>
+      <hr>
+      
+      <!-- Con i Signals si usano le parentesi tonde per leggere il valore: utenti() -->
+      <p><strong>Numero utenti trovati:</strong> {{ utenti().length }}</p>
+
+      <ul *ngIf="utenti().length > 0">
+        <li *ngFor="let u of utenti()" style="margin-bottom: 10px;">
+          <strong>{{ u.nome }}</strong> ({{ u.email }}) 
+          <br><small style="color: gray;">ID Database: {{ u.id }}</small>
+        </li>
+      </ul>
+
+      <p *ngIf="utenti().length === 0" style="color: red;">
+        In attesa dei dati dal backend... (Controlla se il Signal si aggiorna)
+      </p>
+
+      <hr>
+      <pre style="background: #eee; padding: 10px; border: 1px solid #ccc;">Debug Vista HTML: {{ utenti() | json }}</pre>
+    </div>
+  `
+})
+export class App implements OnInit {
+  // Trasformiamo la variabile in un Signal reattivo
+  utenti = signal<any[]>([]);
+
+  constructor(private userService: UserService) {}
+
+  ngOnInit() {
+    console.log("Componente avviato, chiedo i dati a Java...");
+    
+    this.userService.getUsers().subscribe({
+      next: (data: any) => {
+        console.log("Dati ricevuti dal server:", data);
+        
+        let datiEstratti: any[] = [];
+        if (Array.isArray(data)) {
+          datiEstratti = data;
+        } else if (data && data.content) {
+          datiEstratti = data.content;
+        } else {
+          datiEstratti = [data]; 
+        }
+
+        // Aggiorniamo il Signal. Questo notifica DIRETTAMENTE la pagina HTML
+        this.utenti.set(datiEstratti);
+      },
+      error: (err) => {
+        console.error("ERRORE NELLA CHIAMATA HTTP:", err);
+      }
+    });
+  }
+}

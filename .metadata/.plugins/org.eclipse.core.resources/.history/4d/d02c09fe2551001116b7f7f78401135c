@@ -1,0 +1,54 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { UserService } from './services/user'; 
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div style="padding: 20px; font-family: sans-serif;">
+      <h1>EasySched - Dashboard</h1>
+      <hr>
+      
+      <!-- Visualizziamo quanti utenti abbiamo trovato -->
+      <p>Numero utenti trovati: {{ utenti?.length || 0 }}</p>
+
+      <ul>
+        <li *ngFor="let u of utenti">
+          <!-- Stampiamo tutto l'oggetto u per vedere le chiavi esatte -->
+          <strong>{{ u.nome || u.NOME }}</strong> ({{ u.email || u.EMAIL }})
+          <br><small>Dato grezzo: {{ u | json }}</small>
+        </li>
+      </ul>
+
+      <pre style="background: #eee; padding: 10px;">Debug Totale: {{ utenti | json }}</pre>
+    </div>
+  `
+})
+export class App implements OnInit {
+  utenti: any[] = [];
+
+  constructor(private userService: UserService) {}
+
+  ngOnInit() {
+    console.log("Componente avviato, chiedo i dati a Java...");
+    this.userService.getUsers().subscribe({
+      next: (data: any) => {
+        console.log("Dati ricevuti dal server:", data);
+        
+        // A volte le API restituiscono l'array dentro un oggetto (es. data.content)
+        // Questo controllo risolve il problema
+        if (Array.isArray(data)) {
+          this.utenti = data;
+        } else if (data && data.content) {
+          this.utenti = data.content;
+        } else {
+          this.utenti = [data]; // Se è un oggetto singolo, lo mettiamo in un array
+        }
+      },
+      error: (err) => {
+        console.error("ERRORE NELLA CHIAMATA HTTP:", err);
+      }
+    });
+  }
+}

@@ -1,0 +1,204 @@
+import { Component, OnInit, signal } from '@angular/core'; 
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms'; // <-- Fondamentale per far funzionare [(ngModel)] nei campi di testo
+import { UserService } from './services/user'; 
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CommonModule, FormsModule], // <-- FormsModule deve essere registrato qui
+  template: `
+    <nav class="navbar navbar-dark bg-dark shadow-sm mb-4">
+      <div class="container-fluid">
+        <span class="navbar-brand mb-0 h1">
+          <i class="bi bi-calendar-check me-2"></i>EasySched Admin
+        </span>
+        <span class="badge bg-success">Backend Connesso</span>
+      </div>
+    </nav>
+
+    <div class="container">
+      <div class="row mb-4 align-items-center">
+        <div class="col-md-6">
+          <h2 class="text-secondary fw-bold m-0">Dashboard Utenti</h2>
+          <p class="text-muted text-sm mb-0">Gestione e monitoraggio degli account registrati</p>
+        </div>
+        <div class="col-md-6 text-md-end mt-3 mt-md-0">
+          <button class="btn btn-primary shadow-sm" (click)="toggleForm()">
+            <i class="bi bi-person-plus-fill me-2"></i>{{ mostraForm ? 'Chiudi Modulo' : 'Nuovo Utente' }}
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="mostraForm" class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card-body">
+          <h5 class="card-title fw-bold text-secondary mb-3">Inserisci Nuovo Utente</h5>
+          <div class="row g-3">
+            <div class="col-md-5">
+              <input type="text" class="form-control" placeholder="Nome Completo" [(ngModel)]="nuovoUtente.nome">
+            </div>
+            <div class="col-md-5">
+              <input type="email" class="form-control" placeholder="Indirizzo Email" [(ngModel)]="nuovoUtente.email">
+            </div>
+            <div class="col-md-2 d-grid">
+              <button class="btn btn-success" (click)="aggiungiUtente()">Salva</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="m-0 text-dark fw-semibold">Lista Utenti</h5>
+          <span class="badge bg-primary rounded-pill">Totale: {{ utenti().length }}</span>
+        </div>
+        
+        <div class="card-body p-0">
+          <div *ngIf="utentsEmpty()" class="p-5 text-center text-muted">
+            <i class="bi bi-people text-secondary display-4 d-block mb-3"></i>
+            <p class="lead m-0">Nessun utente trovato o in attesa del backend...</p>
+          </div>
+
+          <div *ngIf="!utentsEmpty()" class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light text-uppercase fs-7 text-secondary">
+                <tr>
+                  <th class="ps-4" style="width: 10%">ID</th>
+                  <th style="width: 45%">Nome</th>
+                  <th style="width: 30%">Email</th>
+                  <th class="text-end pe-4" style="width: 15%">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let u of utenti()">
+                  <td class="ps-4 text-muted fw-bold">#{{ u.id }}</td>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <div class="avatar-placeholder me-3">
+                        {{ u.nome ? u.nome.charAt(0).toUpperCase() : '?' }}
+                      </div>
+                      <span class="fw-semibold text-dark">{{ u.nome }}</span>
+                    </div>
+                  </td>
+                  <td class="text-muted">{{ u.email }}</td>
+                  <td class="text-end pe-4">
+                    <button class="btn btn-sm btn-outline-danger border-0" title="Elimina" (click)="eliminaUtente(u.id)">
+                      <i class="bi bi-trash3-fill"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion card border-0 shadow-sm mb-5" id="debugAccordion">
+        <div class="accordion-item border-0">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed bg-light text-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDebug">
+              <i class="bi bi-bug me-2"></i> Strumenti di Debug Sviluppatore
+            </button>
+          </h2>
+          <div id="collapseDebug" class="accordion-collapse collapse" data-bs-parent="#debugAccordion">
+            <div class="accordion-body bg-dark text-light p-3 rounded-bottom">
+              <pre class="m-0 text-success" style="font-size: 0.85rem;">{{ utenti() | json }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+})
+export class App implements OnInit {
+  utenti = signal<any[]>([]);
+  mostraForm = false; // Stato per mostrare/nascondere il form di inserimento
+  nuovoUtente = { nome: '', email: '' }; // Oggetto reattivo per memorizzare gli input del form
+
+  constructor(private userService: UserService) {}
+
+  utentsEmpty(): boolean {
+    return this.utenti().length === 0;
+  }
+
+  ngOnInit() {
+    console.log("Componente avviato, richiedo la lista utenti a Java...");
+    this.caricaUtenti();
+  }
+
+  // Scarica la lista aggiornata di utenti da Spring Boot
+  caricaUtenti() {
+    this.userService.getUsers().subscribe({
+      next: (data: any) => {
+        console.log("Dati scaricati con successo da Java:", data);
+        let datiEstratti: any[] = [];
+        if (Array.isArray(data)) {
+          datiEstratti = data;
+        } else if (data && data.content) {
+          datiEstratti = data.content;
+        } else {
+          datiEstratti = [data]; 
+        }
+        this.utenti.set(datiEstratti);
+      },
+      error: (err) => {
+        console.error("ERRORE DURANTE LA SCARICAMENTO DATI (GET):", err);
+      }
+    });
+  }
+
+  // Mostra o nasconde il form grigio per il nuovo utente
+  toggleForm() {
+    this.mostraForm = !this.mostraForm;
+  }
+
+  // Prende i dati inseriti nel form e li invia a Java tramite il Service
+  aggiungiUtente() {
+    console.log("Pulsante 'Salva' cliccato! Dati inseriti nel form:", this.nuovoUtente);
+
+    // Validazione base
+    if (!this.nuovoUtente.nome || !this.nuovoUtente.email) {
+      alert("Per favore, compila sia il Nome che l'Email!");
+      return;
+    }
+
+    // Costruiamo l'oggetto pulito da mandare a Java
+    const utenteDaInviare = {
+      nome: this.nuovoUtente.nome,
+      email: this.nuovoUtente.email
+    };
+
+    console.log("Invio l'oggetto a Java tramite UserService...", utenteDaInviare);
+
+    this.userService.createUser(utenteDaInviare).subscribe({
+      next: (utenteSalvato) => {
+        console.log("Risposta positiva da Java! Utente salvato nel DB:", utenteSalvato);
+        this.caricaUtenti(); // Ricarica la tabella con i dati freschi dal DB
+        this.nuovoUtente = { nome: '', email: '' }; // Svuota i campi di testo del form
+        this.mostraForm = false; // Chiude il form automaticamete
+      },
+      error: (err) => {
+        console.error("ERRORE DURANTE IL SALVATAGGIO (POST):", err);
+        alert("Impossibile salvare l'utente. Controlla la console del browser!");
+      }
+    });
+  }
+
+  // Prende l'ID dell'utente selezionato e dice a Java di eliminarlo
+  eliminaUtente(id: number) {
+    if (confirm("Sei sicuro di voler eliminare definitivamente questo utente?")) {
+      console.log(`Richiesta eliminazione per utente ID: ${id}`);
+      
+      this.userService.deleteUser(id).subscribe({
+        next: () => {
+          console.log(`Utente con ID ${id} eliminato con successo dal DB.`);
+          this.caricaUtenti(); // Ricarica subito la tabella aggiornata
+        },
+        error: (err) => {
+          console.error("ERRORE DURANTE L'ELIMINAZIONE (DELETE):", err);
+          alert("Impossibile eliminare l'utente.");
+        }
+      });
+    }
+  }
+}
