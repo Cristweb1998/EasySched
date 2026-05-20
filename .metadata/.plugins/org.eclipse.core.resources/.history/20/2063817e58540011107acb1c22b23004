@@ -79,8 +79,12 @@ import { UserService } from './services/user';
                 <tr *ngFor="let u of utenti()">
                   <td class="ps-4 text-muted fw-bold">#{{ u.id }}</td>
                   <td>
-                    <!-- Modificato: rimosso l'avatar e lasciata solo la stringa del nome pulita -->
-                    <span class="fw-semibold text-dark">{{ u.nome }}</span>
+                    <div class="d-flex align-items-center">
+                      <div class="avatar-placeholder me-3">
+                        {{ u.nome ? u.nome.charAt(0).toUpperCase() : '?' }}
+                      </div>
+                      <span class="fw-semibold text-dark">{{ u.nome }}</span>
+                    </div>
                   </td>
                   <td class="text-muted">{{ u.email }}</td>
                   <td class="text-end pe-4">
